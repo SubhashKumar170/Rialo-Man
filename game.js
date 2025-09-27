@@ -308,158 +308,117 @@
     }
 
     // =================== Part 8: Main Game Loop ===================
-    function initGame() {
+    // =================== Part 8: Main Game Loop ===================
+function initGame() {
+    canvas = document.getElementById("gameCanvas");
+    canvas.width = MAZE_MAP[0].length * TILE;
+    canvas.height = MAZE_MAP.length * TILE;
+    ctx = canvas.getContext("2d");
 
-        // Mobile on-screen button controls
-        document.getElementById("up").addEventListener("touchstart", () => { keys["ArrowUp"] = true; });
-        document.getElementById("up").addEventListener("touchend", () => { keys["ArrowUp"] = false; });
+    const { playerPos, ghostPositions } = loadMaze();
 
-        document.getElementById("down").addEventListener("touchstart", () => { keys["ArrowDown"] = true; });    
-        document.getElementById("down").addEventListener("touchend", () => { keys["ArrowDown"] = false; });
+    let playerImg = new Image();
+    playerImg.src = "assets/player.png";
+    let ghostImgs = [];
+    for (let i = 1; i <= 3; i++) {
+        let g = new Image();
+        g.src = `assets/g${i}.png`;
+        ghostImgs.push(g);
+    }
+    let coinImg = new Image();
+    coinImg.src = "assets/rialo.png";
 
-        document.getElementById("left").addEventListener("touchstart", () => { keys["ArrowLeft"] = true; });
-        document.getElementById("left").addEventListener("touchend", () => { keys["ArrowLeft"] = false; });
+    player = new Player(playerPos.x, playerPos.y, playerImg);
+    ghosts = ghostPositions.map((pos, idx) => new Ghost(pos.x, pos.y, ghostImgs[idx % ghostImgs.length]));
 
-        document.getElementById("right").addEventListener("touchstart", () => { keys["ArrowRight"] = true; });
-        document.getElementById("right").addEventListener("touchend", () => { keys["ArrowRight"] = false; });
-
-
-        canvas = document.getElementById("gameCanvas");
-        canvas.width = MAZE_MAP[0].length * TILE;
-        canvas.height = MAZE_MAP.length * TILE;
-        ctx = canvas.getContext("2d");
-
-        const { playerPos, ghostPositions } = loadMaze();
-
-        let playerImg = new Image();
-        playerImg.src = "assets/player.png";
-        let ghostImgs = [];
-        for (let i = 1; i <= 3; i++) {
-            let g = new Image();
-            g.src = `assets/g${i}.png`;
-            ghostImgs.push(g);
+    document.addEventListener("keydown", (e) => {
+        keys[e.key] = true;
+        if (gameOver && e.key === "Enter") {
+            score = 0;
+            lives = LIVES;
+            gameOver = false;
+            win = false;
+            keys = {};
+            entryScreen(initGame);
         }
-        let coinImg = new Image();
-        coinImg.src = "assets/rialo.png";
-
-        player = new Player(playerPos.x, playerPos.y, playerImg);
-        ghosts = ghostPositions.map((pos, idx) => new Ghost(pos.x, pos.y, ghostImgs[idx % ghostImgs.length]));
-
-        document.addEventListener("keydown", (e) => {
-            keys[e.key] = true;
-            if (gameOver && e.key === "Enter") {
-                score = 0;
-                lives = LIVES;
-                gameOver = false;
-                win = false;
-                keys = {};
-                entryScreen(initGame);
-            }
-        });
-        document.addEventListener("keyup", (e) => { keys[e.key] = false; });
-
-        function setupTouchControls() {
-    const directions = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
-
-    directions.forEach(dir => {
-        const btn = document.getElementById(dir.toLowerCase().replace("arrow", ""));
-        if (!btn) return;
-
-        btn.addEventListener("touchstart", (e) => {
-            e.preventDefault();
-            keys[dir] = true;
-        });
-
-        btn.addEventListener("touchend", (e) => {
-            e.preventDefault();
-            keys[dir] = false;
-        });
-
-        btn.addEventListener("touchcancel", (e) => {
-            e.preventDefault();
-            keys[dir] = false;
-        });
     });
-}
+    document.addEventListener("keyup", (e) => { keys[e.key] = false; });
 
-setupTouchControls();
+    function gameLoop() {
+        if (!gameOver) {
+            player.update();
+            ghosts.forEach(g => g.update());
 
-
-        function gameLoop() {
-            if (!gameOver) {
-                player.update();
-                ghosts.forEach(g => g.update());
-
-                let playerRect = rectFromCenter(player.x, player.y, player.radius * 2 - 2);
-                for (let i = pellets.length - 1; i >= 0; i--) {
-                    let pellet = pellets[i];
-                    if (
-                        pellet.x - pelletRadius < playerRect.x + playerRect.width &&
-                        pellet.x + pelletRadius > playerRect.x &&
-                        pellet.y - pelletRadius < playerRect.y + playerRect.height &&
-                        pellet.y + pelletRadius > playerRect.y
-                    ) {
-                        pellets.splice(i, 1);
-                        score += 10;
-                    }
-                }
-
-                ghosts.forEach(g => {
-                    if (
-                        Math.abs(g.x - player.x) < TILE / 2 &&
-                        Math.abs(g.y - player.y) < TILE / 2
-                    ) {
-                        lives--;
-                        if (lives > 0) {
-                            player.x = playerPos.x;
-                            player.y = playerPos.y;
-                        } else {
-                            gameOver = true;
-                        }
-                    }
-                });
-
-                if (pellets.length === 0) {
-                    win = true;
-                    gameOver = true;
+            let playerRect = rectFromCenter(player.x, player.y, player.radius * 2 - 2);
+            for (let i = pellets.length - 1; i >= 0; i--) {
+                let pellet = pellets[i];
+                if (
+                    pellet.x - pelletRadius < playerRect.x + playerRect.width &&
+                    pellet.x + pelletRadius > playerRect.x &&
+                    pellet.y - pelletRadius < playerRect.y + playerRect.height &&
+                    pellet.y + pelletRadius > playerRect.y
+                ) {
+                    pellets.splice(i, 1);
+                    score += 10;
                 }
             }
 
-            ctx.fillStyle = "black";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            walls.forEach(w => {
-                ctx.fillStyle = "blue";
-                ctx.fillRect(w.x, w.y, w.width, w.height);
-            });
-
-            pellets.forEach(p => {
-                ctx.drawImage(coinImg, p.x - TILE / 4, p.y - TILE / 4, TILE / 2, TILE / 2);
-            });
-
-            player.draw();
-            ghosts.forEach(g => g.draw());
-
-            ctx.fillStyle = "white";
-            ctx.fillText("Score: " + score, 10, canvas.height - 10);
-            ctx.fillText("Lives: " + lives, canvas.width - 80, canvas.height - 10);
-
-            if (gameOver) {
-                if (win) drawWinAnimation();
-                else {
-                    ctx.fillStyle = "red";
-                    ctx.font = "30px Arial";
-                    ctx.fillText("GAME OVER Press Enter", canvas.width / 4, canvas.height / 2);
+            ghosts.forEach(g => {
+                if (
+                    Math.abs(g.x - player.x) < TILE / 2 &&
+                    Math.abs(g.y - player.y) < TILE / 2
+                ) {
+                    lives--;
+                    if (lives > 0) {
+                        player.x = playerPos.x;
+                        player.y = playerPos.y;
+                    } else {
+                        gameOver = true;
+                    }
                 }
-            }
+            });
 
-            requestAnimationFrame(gameLoop);
+            if (pellets.length === 0) {
+                win = true;
+                gameOver = true;
+            }
         }
 
-        gameLoop();
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        walls.forEach(w => {
+            ctx.fillStyle = "blue";
+            ctx.fillRect(w.x, w.y, w.width, w.height);
+        });
+
+        pellets.forEach(p => {
+            ctx.drawImage(coinImg, p.x - TILE / 4, p.y - TILE / 4, TILE / 2, TILE / 2);
+        });
+
+        player.draw();
+        ghosts.forEach(g => g.draw());
+
+        ctx.fillStyle = "white";
+        ctx.fillText("Score: " + score, 10, canvas.height - 10);
+        ctx.fillText("Lives: " + lives, canvas.width - 80, canvas.height - 10);
+
+        if (gameOver) {
+            if (win) drawWinAnimation();
+            else {
+                ctx.fillStyle = "red";
+                ctx.font = "30px Arial";
+                ctx.fillText("GAME OVER Press Enter", canvas.width / 4, canvas.height / 2);
+            }
+        }
+
+        requestAnimationFrame(gameLoop);
     }
 
-    window.onload = function () {
+    gameLoop();
+}
+
+window.onload = function () {
     canvas = document.getElementById("gameCanvas");
     canvas.width = MAZE_MAP[0].length * TILE;
     canvas.height = MAZE_MAP.length * TILE;
@@ -467,4 +426,3 @@ setupTouchControls();
 
     entryScreen(initGame);
 };
-
